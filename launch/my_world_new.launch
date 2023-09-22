@@ -1,0 +1,88 @@
+<!-- Modified version of turtlebot_world.launch -->
+<launch>
+  <!-- Put name of world file here -->
+  <arg name="world_file"  default="$(find robotics-project-1)/worlds/project-1.world"/>
+
+  <arg name="base"      value="$(optenv TURTLEBOT_BASE kobuki)"/> <!-- create, roomba -->
+  <arg name="battery"   value="$(optenv TURTLEBOT_BATTERY /proc/acpi/battery/BAT0)"/>  <!-- /proc/acpi/battery/BAT0 --> 
+  <arg name="gui" default="true"/>
+  <arg name="stacks"    value="$(optenv TURTLEBOT_STACKS hexagons)"/>  <!-- circles, hexagons --> 
+  <arg name="3d_sensor" value="$(optenv TURTLEBOT_3D_SENSOR kinect)"/>  <!-- kinect, asus_xtion_pro --> 
+
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="use_sim_time" value="true"/>
+    <arg name="debug" value="false"/>
+    <arg name="gui" value="$(arg gui)" />
+    <arg name="world_name" value="$(arg world_file)"/>
+  </include>
+  
+  <include file="$(find turtlebot_gazebo)/launch/includes/$(arg base).launch.xml">
+    <arg name="base" value="$(arg base)"/>
+    <arg name="stacks" value="$(arg stacks)"/>
+    <arg name="3d_sensor" value="$(arg 3d_sensor)"/>
+  </include>
+  
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
+    <param name="publish_frequency" type="double" value="30.0" />
+  </node>
+  
+  <!-- Fake laser -->
+  <node pkg="nodelet" type="nodelet" name="laserscan_nodelet_manager" args="manager"/>
+  <node pkg="nodelet" type="nodelet" name="depthimage_to_laserscan"
+        args="load depthimage_to_laserscan/DepthImageToLaserScanNodelet laserscan_nodelet_manager">
+    <param name="scan_height" value="10"/>
+    <param name="output_frame_id" value="/camera_depth_frame"/>
+    <param name="range_min" value="0.45"/>
+    <remap from="image" to="/camera/depth/image_raw"/>
+    <remap from="scan" to="/scan"/>
+  </node>
+
+  <!-- Added stuff starts here -->
+  <node pkg="robotics-project-1" type="prioritizer.py" name="prioritizer" output="screen"/>
+  <node pkg="robotics-project-1" type="turtlebot_teleop_key.py" name="teleop" output="screen"/>
+  <node pkg="robotics-project-1" type="drive_control.py" name="drive_control" output="screen"/>
+  <node pkg="robotics-project-1" type="obstacle_detection.py" name="obstacle_detection" output="screen"/>
+
+  <!-- From gmapping_demo.launch -->
+  <arg name="scan_topic" default="scan"/>
+  <arg name="base_frame" default="base_footprint"/>
+  <arg name="odom_frame" default="odom"/>
+  <node pkg="gmapping" type="slam_gmapping" name="slam_gmapping">
+    <param name="base_frame" value="$(arg base_frame)"/>
+    <param name="odom_frame" value="$(arg odom_frame)"/>
+    <param name="map_update_interval" value="5.0"/>
+    <param name="maxUrange" value="6.0"/>
+    <param name="maxRange" value="8.0"/>
+    <param name="sigma" value="0.05"/>
+    <param name="kernelSize" value="1"/>
+    <param name="lstep" value="0.05"/>
+    <param name="astep" value="0.05"/>
+    <param name="iterations" value="5"/>
+    <param name="lsigma" value="0.075"/>
+    <param name="ogain" value="3.0"/>
+    <param name="lskip" value="0"/>
+    <param name="minimumScore" value="200"/>
+    <param name="srr" value="0.01"/>
+    <param name="srt" value="0.02"/>
+    <param name="str" value="0.01"/>
+    <param name="stt" value="0.02"/>
+    <param name="linearUpdate" value="0.5"/>
+    <param name="angularUpdate" value="0.436"/>
+    <param name="temporalUpdate" value="-1.0"/>
+    <param name="resampleThreshold" value="0.5"/>
+    <param name="particles" value="80"/>
+    <param name="xmin" value="-1.0"/>
+    <param name="ymin" value="-1.0"/>
+    <param name="xmax" value="1.0"/>
+    <param name="ymax" value="1.0"/>
+    <param name="delta" value="0.05"/>
+    <param name="llsamplerange" value="0.01"/>
+    <param name="llsamplestep" value="0.01"/>
+    <param name="lasamplerange" value="0.005"/>
+    <param name="lasamplestep" value="0.005"/>
+    <remap from="scan" to="$(arg scan_topic)"/>
+  </node>
+
+  <!-- From turtlebot_rviz_launchers/launch/view_navigation.launch-->
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find robotics-project-1)/launch/navigation.rviz"/>
+</launch>
