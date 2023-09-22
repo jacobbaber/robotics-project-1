@@ -37,6 +37,13 @@
     <remap from="scan" to="/scan"/>
   </node>
 
+<!-- teleop -->
+  <node pkg="robotics-project-1" type="turtlebot_teleop_key.py" name="turtlebot_teleop_keyboard"  output="screen">
+    <param name="scale_linear" value="0.5" type="double"/>
+    <param name="scale_angular" value="1.5" type="double"/>
+    <remap from="turtlebot_teleop_keyboard/cmd_vel" to="cmd_vel_mux/input/teleop"/>
+  </node>
+
   <!-- Added stuff starts here -->
   <node pkg="robotics-project-1" type="prioritizer.py" name="prioritizer" output="screen"/>
   <node pkg="robotics-project-1" type="turtlebot_teleop_key.py" name="teleop" output="screen"/>
