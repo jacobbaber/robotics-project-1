@@ -5,6 +5,7 @@ from nav_msgs.msg import Odometry
 import sys, select, termios, tty
 from math import sqrt, radians
 from rospy import Time, Duration
+from sensor_msgs.msg import LaserScan
 import random  
 
 # Initialize variables to keep track of distance traveled
@@ -12,6 +13,7 @@ distance_traveled = 0.0
 foot_distance = 0.3048  # 1 foot in meters
 initial_x_position = None
 initial_y_position = None
+global turning
 
 def startRobot():
     global distance_traveled, initial_x_position, initial_y_position
@@ -22,7 +24,7 @@ def startRobot():
     cmd_vel = rospy.Publisher('cmd_vel_mux/input/navi', Twist, queue_size=10)
     bumper_sub = rospy.Subscriber('mobile_base/sensors/bumper_pointcloud', PointCloud2, bumper_callback)
     odom_sub = rospy.Subscriber('odom', Odometry, odom_callback)
-
+    laser = rospy.Subscriber("/scan", LaserScan, scan_callback)
     turning = False
     turning_start_time = None
     turning_duration = Duration(secs=2)
@@ -37,16 +39,6 @@ def startRobot():
             move_cmd.linear.x = 0.0
             move_cmd.angular.z = 0.0
             shutdown()
-        elif turning:
-            # Turn randomly between -15 and 15 degrees
-            move_cmd.linear.x = 0.0
-            move_cmd.angular.z = randomAngle  # Random angle in radians
-            cmd_vel.publish(move_cmd)
-            if rospy.Time.now() - turning_start_time > turning_duration:
-                move_cmd.linear.x = 0.0
-                move_cmd.angular.z = 0.0  # Stop turning after 2 seconds
-                turning = False
-                cmd_vel.publish(move_cmd)
         else:
             key = getKey()
 
@@ -62,9 +54,20 @@ def startRobot():
             elif key == 'd':
                 move_cmd.linear.x = 0.0
                 move_cmd.angular.z = -0.5  # Turn right
-            else:
+            elif turning:
+                # Turn randomly between -15 and 15 degrees
                 move_cmd.linear.x = 0.0
-                move_cmd.angular.z = 0.0  # Stop
+                move_cmd.angular.z = randomAngle  # Random angle in radians
+                cmd_vel.publish(move_cmd)
+                if rospy.Time.now() - turning_start_time > turning_duration:
+                    move_cmd.linear.x = 0.0
+                    move_cmd.angular.z = 0.0  # Stop turning after 2 seconds
+                    turning = False
+                    cmd_vel.publish(move_cmd)
+            else:
+                move_cmd.linear.x = 0.1
+                move_cmd.angular.z = 0.0
+                  # Stop
         
         cmd_vel.publish(move_cmd)
         r.sleep()
@@ -91,6 +94,20 @@ def odom_callback(odom):
     current_x_position = odom.pose.pose.position.x
     current_y_position = odom.pose.pose.position.y
     distance_traveled = sqrt((current_x_position - initial_x_position)**2 + (current_y_position - initial_y_position)**2)
+
+def scan_callback(scan):
+
+    left_side_range = scan.ranges[0]  
+    right_side_range = scan.ranges[20]  
+    if abs(left_side_range - right_side_range) <= 0.01:
+            rospy.loginfo("Symmetrical object detected in front")
+            if not turning:
+                turning = True
+                randomAngle = radians(180)  # Turn roughly 180 degrees
+                turning_start_time = rospy.Time.now()
+
+
+
 
 def getKey():
     settings = termios.tcgetattr(sys.stdin)
