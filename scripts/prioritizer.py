@@ -98,16 +98,33 @@ def odom_callback(odom):
 def scan_callback(scan):
     global turning, turning_duration, randomAngle, turning_start_time
 
-    left_side_range = scan.ranges[0]  
-    right_side_range = scan.ranges[20]  
+    left_side_range = scan.ranges[178]  
+    right_side_range = scan.ranges[459]  
 
-    # Check if the difference between two points of the scan are less than 0.125 and if the distance of the points are less than .7 
+
+    # Check if the difference between two points of the scan are less than 0.125 and if the distance of the points are less than .7
+    # Aka turn 180 degrees away from close symmetrical objects 
     if abs(left_side_range - right_side_range) <= 0.125 and left_side_range <= 0.7 and right_side_range <= 0.7:
             if not turning:
                 turning = True
                 turning_duration = Duration(secs=2)
                 randomAngle = radians(90)  # Turn roughly 180 degrees
                 turning_start_time = rospy.Time.now()
+
+    # checks for asymmetry, turns in the direction of the less close object
+    if abs(left_side_range - right_side_range) >= 1 and (left_side_range <= 0.7 or right_side_range <= 0.7):
+            if not turning:
+                if left_side_range >= right_side_range:
+                    turning = True
+                    turning_duration = Duration(secs=2)
+                    randomAngle = radians(30)  
+                    turning_start_time = rospy.Time.now()
+                else:
+                    turning = True
+                    turning_duration = Duration(secs=2)
+                    randomAngle = radians(30)  
+                    turning_start_time = rospy.Time.now()
+
 
 
 
