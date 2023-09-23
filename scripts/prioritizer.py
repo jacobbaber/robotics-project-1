@@ -13,10 +13,14 @@ distance_traveled = 0.0
 foot_distance = 0.3048  # 1 foot in meters
 initial_x_position = None
 initial_y_position = None
-global turning
+turning = False
+turning_duration = Duration(secs=2)
+randomAngle = 0
+turning_start_time = None
+    
 
 def startRobot():
-    global distance_traveled, initial_x_position, initial_y_position
+    global distance_traveled, initial_x_position, initial_y_position, turning, turning_duration, randomAngle, turning_start_time
     rospy.init_node('startRobot', anonymous=False)
     rospy.loginfo("To stop TurtleBot, press CTRL + C")
     rospy.on_shutdown(shutdown)
@@ -25,11 +29,7 @@ def startRobot():
     bumper_sub = rospy.Subscriber('mobile_base/sensors/bumper_pointcloud', PointCloud2, bumper_callback)
     odom_sub = rospy.Subscriber('odom', Odometry, odom_callback)
     laser = rospy.Subscriber("/scan", LaserScan, scan_callback)
-    turning = False
-    turning_start_time = None
-    turning_duration = Duration(secs=2)
-    randomAngle = 0
-    
+ 
     r = rospy.Rate(10)
     move_cmd = Twist()
 
@@ -74,13 +74,13 @@ def startRobot():
 
         # Check if the distance traveled exceeds 1 foot and print a message
         if distance_traveled >= foot_distance:
-            rospy.loginfo("Robot has moved forward 1 foot.")
-            rospy.loginfo(distance_traveled)
+            rospy.loginfo("Robot has moved forward 1 foot, turning now")
             distance_traveled = 0.0  # Reset distance traveled
             initial_x_position = None
             initial_y_position = None
             turning = True
             randomAngle = radians(random.uniform(-15, 15))
+            turning_duration = Duration(secs=2)
             turning_start_time = rospy.Time.now()
 
 def odom_callback(odom):
@@ -96,14 +96,17 @@ def odom_callback(odom):
     distance_traveled = sqrt((current_x_position - initial_x_position)**2 + (current_y_position - initial_y_position)**2)
 
 def scan_callback(scan):
+    global turning, turning_duration, randomAngle, turning_start_time
 
     left_side_range = scan.ranges[0]  
     right_side_range = scan.ranges[20]  
-    if abs(left_side_range - right_side_range) <= 0.01:
-            rospy.loginfo("Symmetrical object detected in front")
+
+    # Check if the difference between two points of the scan are less than 0.125 and if the distance of the points are less than .7 
+    if abs(left_side_range - right_side_range) <= 0.125 and left_side_range <= 0.7 and right_side_range <= 0.7:
             if not turning:
                 turning = True
-                randomAngle = radians(180)  # Turn roughly 180 degrees
+                turning_duration = Duration(secs=2)
+                randomAngle = radians(90)  # Turn roughly 180 degrees
                 turning_start_time = rospy.Time.now()
 
 
